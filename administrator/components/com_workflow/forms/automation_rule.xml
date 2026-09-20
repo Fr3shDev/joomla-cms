@@ -12,7 +12,7 @@
 		default="delay"
 		validate="options"
 		parentclass="cb-delay cb-rule-type"
-	>
+		>
 		<option value="delay">COM_WORKFLOW_AUTOMATION_RULE_TYPE_DELAY</option>
 		<option value="cron">COM_WORKFLOW_AUTOMATION_RULE_TYPE_CRON</option>
 	</field>
@@ -36,7 +36,7 @@
 		validate="options"
 		showon="rule_type:delay"
 		parentclass="cb-delay cb-delay-unit"
-	>
+		>
 		<option value="minutes">COM_WORKFLOW_AUTOMATION_UNIT_MINUTES</option>
 		<option value="hours">COM_WORKFLOW_AUTOMATION_UNIT_HOURS</option>
 		<option value="days">COM_WORKFLOW_AUTOMATION_UNIT_DAYS</option>
