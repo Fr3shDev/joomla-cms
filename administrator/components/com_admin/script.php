@@ -253,6 +253,8 @@ class JoomlaInstallerScript
             'type'  => 'workflow.automation',
 
             // Every 15 minutes, because this ships to every site, including those with no workflows.
+            // The first run waits a day so a brand new site is not doing this before anyone has
+            // built a workflow. Saving or test running the task brings it forward.
             'execution_rules' => json_encode([
                 'rule-type'        => 'interval-minutes',
                 'interval-minutes' => 15,
@@ -261,7 +263,7 @@ class JoomlaInstallerScript
             ]),
             'cron_rules'     => json_encode(['type' => 'interval', 'exp' => 'PT15M']),
             'state'          => 1,
-            'next_execution' => Factory::getDate('+15 minutes')->toSql(),
+            'next_execution' => Factory::getDate('+24 hours')->toSql(),
 
             'params' => json_encode([
                 'individual_log' => false,
