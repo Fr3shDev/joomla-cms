@@ -11,8 +11,6 @@
 
 namespace Joomla\Component\Workflow\Administrator\Model;
 
-use Cron\CronExpression;
-use Joomla\CMS\Access\Access;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Form\Form;
 use Joomla\CMS\Language\Text;
@@ -179,10 +177,6 @@ class TransitionModel extends AdminModel
 
         $transitionId = (int) ($data['id'] ?? $this->getState($this->getName() . '.id'));
 
-        if (!$this->validateAutomation($automationRule, $transitionId)) {
-            return false;
-        }
-
         $table      = $this->getTable();
         $context    = $this->option . '.' . $this->name;
         $app        = Factory::getApplication();
@@ -238,11 +232,19 @@ class TransitionModel extends AdminModel
         try {
             $this->saveAutomationRule($pk, $automationRule);
         } catch (\Throwable $error) {
-            // The transition is already saved and the old rule survives the rollback, so report the
-            // error instead of letting it become a 500 page.
-            $this->setError(Text::sprintf('COM_WORKFLOW_AUTOMATION_RULE_SAVE_FAILED', $error->getMessage()));
-
-            return false;
+            // The transition itself saved and the old rule survived the rollback, so this reports
+            // what failed rather than claiming the whole save did.
+            Factory::getApplication()->enqueueMessage(
+                Text::sprintf('COM_WORKFLOW_AUTOMATION_RULE_SAVE_FAILED', $error->getMessage()),
+                'error'
+            );
+        }
+        if ($automationEnabled && !$this->canExecuteTransition((int) ($automationRule['run_as_user_id'] ?? 0), $pk)) {
+            // Only a warning, because the permission is often granted after the rule is written.
+            Factory::getApplication()->enqueueMessage(
+                Text::_('COM_WORKFLOW_AUTOMATION_WARNING_RUN_AS_CANNOT_EXECUTE'),
+                'warning'
+            );
         }
 
         return true;
@@ -476,175 +478,6 @@ class TransitionModel extends AdminModel
 
             throw $error;
         }
-    }
-
-    /**
-     * Validates the automation rule data submitted with a transition.
-     *
-     * Failures are reported with setError() rather than enqueueMessage(), because FormController
-     * builds its "save failed" message from getError(). Enqueuing instead leaves that message with
-     * nothing after the colon, and the real reason shown separately above it.
-     *
-     * @param   array  $data  The automation sub-form data.
-     *
-     * @return  boolean  True if valid, false with the reason set otherwise.
-     *
-     * @since   __DEPLOY_VERSION__
-     */
-    private function validateAutomationRule(array $data): bool
-    {
-        $ruleType = $data['rule_type'] ?? 'delay';
-
-        if (!\in_array($ruleType, ['delay', 'cron'], true)) {
-            $this->setError(Text::_('COM_WORKFLOW_AUTOMATION_ERROR_RULE_TYPE'));
-
-            return false;
-        }
-
-        if ($ruleType === 'delay') {
-            if ((int) ($data['delay_value'] ?? 0) < 0) {
-                $this->setError(Text::_('COM_WORKFLOW_AUTOMATION_ERROR_DELAY_VALUE'));
-
-                return false;
-            }
-
-            if (!\in_array($data['delay_unit'] ?? '', ['minutes', 'hours', 'days', 'months'], true)) {
-                $this->setError(Text::_('COM_WORKFLOW_AUTOMATION_ERROR_DELAY_UNIT'));
-
-                return false;
-            }
-        }
-
-        if ($ruleType === 'cron') {
-            $expression = trim((string) ($data['cron_expression'] ?? ''));
-
-            if ($expression === '' || !CronExpression::isValidExpression($expression)) {
-                $this->setError(Text::_('COM_WORKFLOW_AUTOMATION_ERROR_CRON'));
-
-                return false;
-            }
-        }
-
-        $builders = [
-            'item_filter'    => 'COM_WORKFLOW_AUTOMATION_FILTER_LABEL',
-            'fire_condition' => 'COM_WORKFLOW_AUTOMATION_CONDITION_LABEL',
-        ];
-
-        foreach ($builders as $key => $label) {
-            if ($this->hasIncompleteCheck(json_decode((string) ($data[$key] ?? ''), true))) {
-                $this->setError(Text::sprintf('COM_WORKFLOW_AUTOMATION_ERROR_INCOMPLETE_CHECK', Text::_($label)));
-
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * Whether a condition builder expression holds a check with no field, operator or value.
-     *
-     * The builder submits such checks rather than dropping them, so a save rejected here returns
-     * the expression to the editor to finish instead of losing it.
-     *
-     * @param   mixed  $node  A decoded expression or check, or null when there is none.
-     *
-     * @return  boolean
-     *
-     * @since   __DEPLOY_VERSION__
-     */
-    private function hasIncompleteCheck(mixed $node): bool
-    {
-        if (!\is_array($node)) {
-            return false;
-        }
-
-        if (\array_key_exists('items', $node)) {
-            foreach ((array) $node['items'] as $child) {
-                if ($this->hasIncompleteCheck($child)) {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        $value = $node['value'] ?? '';
-
-        return ($node['field'] ?? '') === ''
-            || ($node['operator'] ?? '') === ''
-            || $value === ''
-            || $value === [];
-    }
-
-    /**
-     * Validates the run-as user on an automation rule.
-     *
-     * Unlike the field checks, this needs the parent transition to decide who may be delegated to,
-     * so it stays in the model rather than becoming a form rule.
-     *
-     * @param   array    $automationRule  The automation sub-form data.
-     * @param   integer  $transitionId    The transition being saved.
-     *
-     * @return  boolean  True if valid, false with the reason set otherwise.
-     *
-     * @since   __DEPLOY_VERSION__
-     */
-    private function validateAutomation(array $automationRule, int $transitionId): bool
-    {
-        if (empty($automationRule)) {
-            return true;
-        }
-
-        if (!$this->validateAutomationRule($automationRule)) {
-            return false;
-        }
-
-        $app         = Factory::getApplication();
-        $runAsUserId = (int) ($automationRule['run_as_user_id'] ?? 0);
-
-        if ($runAsUserId === 0) {
-            $this->setError(Text::_('COM_WORKFLOW_AUTOMATION_ERROR_NO_RUN_AS'));
-
-            return false;
-        }
-
-        // The form only offers the allowed users, but a request can be crafted, so it is checked again here.
-        if (!$this->mayDelegateTo($runAsUserId, $transitionId)) {
-            $this->setError(Text::_('COM_WORKFLOW_AUTOMATION_ERROR_RUN_AS_NOT_ALLOWED'));
-
-            return false;
-        }
-
-        // Only a warning, because the permission is often granted after the rule is written.
-        if ($transitionId > 0 && !$this->canExecuteTransition($runAsUserId, $transitionId)) {
-            $app->enqueueMessage(Text::_('COM_WORKFLOW_AUTOMATION_WARNING_RUN_AS_CANNOT_EXECUTE'), 'warning');
-        }
-
-        return true;
-    }
-
-    /**
-     * Whether the current user may save a rule that runs as this account.
-     *
-     * A super user may choose anyone. Anyone else may choose themselves or keep the account the rule
-     * already runs as, because the group tree cannot show whether one group holds more permissions
-     * than another.
-     *
-     * @param   integer  $candidateUserId  The account being named as the run-as user.
-     * @param   integer  $transitionId     The transition being saved, or 0 for a new one.
-     *
-     * @return  boolean
-     *
-     * @since   __DEPLOY_VERSION__
-     */
-    private function mayDelegateTo(int $candidateUserId, int $transitionId): bool
-    {
-        $user = $this->getCurrentUser();
-
-        return $user->authorise('core.admin')
-            || $candidateUserId === (int) $user->id
-            || $candidateUserId === $this->storedRunAsUserId($transitionId);
     }
 
     /**
