@@ -60,7 +60,8 @@ class ConditionbuilderField extends FormField
             ->useStyle('com_workflow.condition-builder')
             ->useScript('com_workflow.condition-builder')
             ->usePreset('choicesjs')
-            ->useScript('webcomponent.field-fancy-select');
+            ->useScript('webcomponent.field-fancy-select')
+            ->useScript('joomla.dialog-autocreate');
 
         Text::script('JGLOBAL_SELECT_NO_RESULTS_MATCH');
         Text::script('JGLOBAL_SELECT_PRESS_TO_SELECT');
@@ -82,7 +83,7 @@ class ConditionbuilderField extends FormField
             'text'         => $this->getInterfaceText(),
             'preview'      => $this->getPreviewConfig(),
             'expert'       => $this->isExpertMode(),
-            'expertUrl'    => $this->expertModeUrl(),
+            'expertDialog' => $this->expertModeDialog(),
         ]);
 
         return '<div class="condition-builder" data-condition-builder data-config="'
@@ -286,6 +287,9 @@ class ConditionbuilderField extends FormField
             'addCheck'           => Text::_('COM_WORKFLOW_AUTOMATION_BUILDER_ADD_CHECK'),
             'expertHint'         => Text::_('COM_WORKFLOW_AUTOMATION_BUILDER_EXPERT_HINT'),
             'expertLink'         => Text::_('COM_WORKFLOW_AUTOMATION_BUILDER_EXPERT_LINK'),
+            'expertOffHint'      => Text::_('COM_WORKFLOW_AUTOMATION_BUILDER_EXPERT_OFF_HINT'),
+            'expertOffLink'      => Text::_('COM_WORKFLOW_AUTOMATION_BUILDER_EXPERT_OFF_LINK'),
+            'expertHeader'       => Text::_('COM_WORKFLOW_AUTOMATION_BUILDER_EXPERT_HEADER'),
             'addExpression'      => Text::_('COM_WORKFLOW_AUTOMATION_BUILDER_ADD_EXPRESSION'),
             'remove'             => Text::_('COM_WORKFLOW_AUTOMATION_BUILDER_REMOVE'),
             'check'              => Text::_('COM_WORKFLOW_AUTOMATION_BUILDER_CHECK'),
@@ -338,10 +342,10 @@ class ConditionbuilderField extends FormField
      *
      * @since   __DEPLOY_VERSION__
      */
-    private function expertModeUrl(): string
+    private function expertModeDialog(): ?array
     {
-        if ($this->isExpertMode() || !Factory::getApplication()->getIdentity()->authorise('core.manage', 'com_plugins')) {
-            return '';
+        if (!Factory::getApplication()->getIdentity()->authorise('core.manage', 'com_plugins')) {
+            return null;
         }
 
         $db    = Factory::getContainer()->get(DatabaseInterface::class);
@@ -354,9 +358,23 @@ class ConditionbuilderField extends FormField
 
         $extensionId = (int) $db->setQuery($query)->loadResult();
 
-        return $extensionId > 0
-            ? Route::_('index.php?option=com_plugins&task=plugin.edit&extension_id=' . $extensionId, false)
-            : '';
+        if ($extensionId < 1) {
+            return null;
+        }
+
+        return [
+            'src' => Route::_(
+                'index.php?option=com_plugins&client_id=0&task=plugin.edit&extension_id=' . $extensionId
+                    . '&tmpl=component&layout=modal',
+                false
+            ),
+
+            // Opening the plugin checks it out, so closing the dialog has to check it back in.
+            'checkinUrl' => Route::_(
+                'index.php?option=com_plugins&task=plugins.checkin&format=json&cid[]=' . $extensionId,
+                false
+            ),
+        ];
     }
 
     /**

@@ -319,7 +319,11 @@
 
     focusAfterRemove(path) {
       const replacement = this.ui.querySelector('[data-path="' + path + '"]');
-      const target = replacement ? replacement.querySelector('[data-role="field"], button[data-action="remove"]') : this.ui.querySelector('button[data-action="add-check"]');
+      const target = replacement
+        ? replacement.querySelector(
+            '[data-role="field"], button[data-action="remove"]',
+          )
+        : this.ui.querySelector('button[data-action="add-check"]');
 
       if (target) target.focus();
     }
@@ -489,10 +493,9 @@
         );
       }
 
-      const expertHint
-        = this.simple && path === '' && text.expertHint
-          ? this.renderExpertHint()
-          : null;
+      const expertHint = path === '' && (this.simple ? text.expertHint : text.expertOffHint)
+        ? this.renderExpertHint()
+        : null;
 
       if (this.config.preview && path === '' && this.tree.items.length > 0) {
         addArea.appendChild(
@@ -528,25 +531,37 @@
 
     renderExpertHint() {
       const text = this.config.text;
+      const sentence = this.simple ? text.expertHint : text.expertOffHint;
+      const linkText = this.simple ? text.expertLink : text.expertOffLink;
       // One sentence with %s where the link goes, so it stays translatable as a whole.
-      const [before, after] = text.expertHint.split('%s');
-      const hint = el(
-        'div',
-        { class: 'small' },
-        before || '',
-      );
+      const [before, after] = sentence.split('%s');
+      const hint = el('div', { class: 'small' }, before || '');
 
       hint.appendChild(
-        this.config.expertUrl
-          ? el('a', {
-              href: this.config.expertUrl,
-              text: text.expertLink || '',
-            })
-          : document.createTextNode(text.expertLink || ''),
+        this.config.expertDialog
+          ? this.renderExpertLink(linkText || '')
+          : document.createTextNode(linkText || ''),
       );
       hint.appendChild(document.createTextNode(after || ''));
 
       return hint;
+    }
+
+    renderExpertLink(label) {
+      const dialog = this.config.expertDialog;
+
+      return el('a', {
+        href: '#',
+        text: label,
+        'data-joomla-dialog': JSON.stringify({
+          popupType: 'iframe',
+          textHeader: this.config.text.expertHeader || label,
+          src: dialog.src,
+        }),
+        'data-checkin-url': dialog.checkinUrl,
+        'data-close-on-message': '',
+        'data-reload-on-close': '',
+      });
     }
 
     renderCheck(node, path) {
@@ -577,9 +592,13 @@
 
     removeCheckLabel(node) {
       const text = this.config.text;
-      const field = (this.config.fields || []).find((f) => f.value === node.field);
+      const field = (this.config.fields || []).find(
+        (f) => f.value === node.field,
+      );
 
-      return field && text.removeCheck ? text.removeCheck.replace('%s', field.label) : text.remove;
+      return field && text.removeCheck
+        ? text.removeCheck.replace('%s', field.label)
+        : text.remove;
     }
 
     renderNot(node) {
@@ -687,9 +706,7 @@
       if (button) button.disabled = true;
       output.className = 'w-100 small';
       output.textContent = '';
-      output.appendChild(
-        el('div', { text: text.previewRunning || '' }),
-      );
+      output.appendChild(el('div', { text: text.previewRunning || '' }));
 
       const body = new FormData();
       body.append('extension', preview.extension);
@@ -731,9 +748,7 @@
       output.textContent = '';
 
       if (!data.scanned) {
-        output.appendChild(
-          el('div', { text: text.previewEmpty || '' }),
-        );
+        output.appendChild(el('div', { text: text.previewEmpty || '' }));
         return;
       }
 
