@@ -532,7 +532,7 @@
       const [before, after] = text.expertHint.split('%s');
       const hint = el(
         'div',
-        { class: 'small text-muted' },
+        { class: 'small' },
         before || '',
       );
 
@@ -688,7 +688,7 @@
       output.className = 'w-100 small';
       output.textContent = '';
       output.appendChild(
-        el('div', { class: 'text-muted', text: text.previewRunning || '' }),
+        el('div', { text: text.previewRunning || '' }),
       );
 
       const body = new FormData();
@@ -732,7 +732,7 @@
 
       if (!data.scanned) {
         output.appendChild(
-          el('div', { class: 'text-muted', text: text.previewEmpty || '' }),
+          el('div', { text: text.previewEmpty || '' }),
         );
         return;
       }
@@ -741,7 +741,6 @@
 
       output.appendChild(
         el('div', {
-          class: 'text-muted',
           text: (template || '%1$s / %2$s')
             .replaceAll('%1$s', data.matched)
             .replaceAll('%2$s', data.scanned),
@@ -801,7 +800,7 @@
       let page = 0;
 
       const list = el('ul', { class: 'list-unstyled mb-0' });
-      const range = el('span', { class: 'small text-muted' });
+      const range = el('span', { class: 'small' });
 
       const previous = el('button', {
         type: 'button',
@@ -874,7 +873,7 @@
       if (data.matched > items.length) {
         body.appendChild(
           el('p', {
-            class: 'small text-muted mt-2 mb-0',
+            class: 'small mt-2 mb-0',
             text: (
               text.previewListTrimmed || 'Showing the first %s.'
             ).replaceAll('%s', items.length),

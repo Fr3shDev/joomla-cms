@@ -48,7 +48,6 @@
 		type="text"
 		label="COM_WORKFLOW_AUTOMATION_CRON_LABEL"
 		description="COM_WORKFLOW_AUTOMATION_CRON_DESC"
-		hint="*/5 * * * *"
 		showon="rule_type:cron"
 		parentclass="cb-delay cb-cron"
 	/>
