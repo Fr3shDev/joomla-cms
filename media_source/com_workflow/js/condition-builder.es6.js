@@ -15,7 +15,7 @@
     Object.entries(attrs || {}).forEach(([key, value]) => {
       if (key === 'class') node.className = value;
       else if (key === 'text') node.textContent = value;
-      else if (key.includes('-')) node.setAttribute(key, value);
+      else if (key === 'role' || key.includes('-')) node.setAttribute(key, value);
       else {
         try {
           node[key] = value;
@@ -269,6 +269,7 @@
         this.pendingAdd = null;
         this.removeAt(path);
         this.render();
+        this.focusAfterRemove(path);
       }
     }
 
@@ -314,6 +315,13 @@
       this.ui.innerHTML = '';
       this.ui.appendChild(this.renderChain(this.tree, '', true));
       this.sync();
+    }
+
+    focusAfterRemove(path) {
+      const replacement = this.ui.querySelector('[data-path="' + path + '"]');
+      const target = replacement ? replacement.querySelector('[data-role="field"], button[data-action="remove"]') : this.ui.querySelector('button[data-action="add-check"]');
+
+      if (target) target.focus();
     }
 
     renderChain(node, path, isRoot) {
@@ -377,11 +385,19 @@
 
       parts.push(this.renderAddArea(path));
 
-      return el(
-        'div',
-        { class: isRoot ? 'cb-root' : 'cb-expression', 'data-path': path },
-        ...parts,
-      );
+      const attrs = {
+        class: isRoot ? 'cb-root' : 'cb-expression',
+        'data-path': path,
+      };
+
+      if (!isRoot) {
+        // Without this the nesting is invisible: checks inside a sub-expression are announced
+        // as siblings of the ones outside it, which inverts the meaning of the rule.
+        attrs.role = 'group';
+        attrs['aria-label'] = text.expression;
+      }
+
+      return el('div', attrs, ...parts);
     }
 
     renderOpSelect(chainNode, opIndex) {
@@ -500,6 +516,7 @@
           el('div', {
             class: 'w-100 small',
             'data-role': 'preview-output',
+            'aria-live': 'polite',
           }),
         );
       } else if (expertHint) {
@@ -552,10 +569,17 @@
           type: 'button',
           class: 'btn btn-sm btn-danger cb-remove',
           'data-action': 'remove',
-          'aria-label': text.remove,
+          'aria-label': this.removeCheckLabel(node),
           text: '\u00d7',
         }),
       );
+    }
+
+    removeCheckLabel(node) {
+      const text = this.config.text;
+      const field = (this.config.fields || []).find((f) => f.value === node.field);
+
+      return field && text.removeCheck ? text.removeCheck.replace('%s', field.label) : text.remove;
     }
 
     renderNot(node) {
@@ -571,6 +595,7 @@
       const select = el('select', {
         class: 'form-select',
         'data-role': 'field',
+        'aria-label': this.config.text.field,
       });
       this.config.fields.forEach((field) => {
         const option = el('option', { value: field.value, text: field.label });
@@ -584,6 +609,7 @@
       const select = el('select', {
         class: 'form-select',
         'data-role': 'operator',
+        'aria-label': this.config.text.operator,
       });
       ((this.config.operators || {})[node.field] || []).forEach((operator) => {
         const option = el('option', {
@@ -604,6 +630,7 @@
           type: type,
           class: 'form-control',
           'data-role': 'value',
+          'aria-label': this.config.text.value,
           value:
             node.value === null || node.value === undefined
               ? ''
@@ -622,6 +649,7 @@
       const select = el('select', {
         class: 'form-select',
         'data-role': 'value',
+        'aria-label': this.config.text.value,
       });
       if (multiple) select.multiple = true;
       else select.appendChild(el('option', { value: '', text: '\u2014' }));

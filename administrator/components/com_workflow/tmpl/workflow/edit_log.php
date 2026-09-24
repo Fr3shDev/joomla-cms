@@ -18,7 +18,7 @@ use Joomla\CMS\Router\Route;
 
 $arrow = $this->getLanguage()->isRtl() ? 'arrow-left' : 'arrow-right';
 if (empty($this->automationLog)) : ?>
-    <div class="alert alert-info" role="alert">
+    <div class="alert alert-info">
         <span class="icon-info-circle" aria-hidden="true"></span>
         <?php echo Text::_('COM_WORKFLOW_LOG_EMPTY'); ?>
     </div>

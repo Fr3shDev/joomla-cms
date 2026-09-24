@@ -28,7 +28,7 @@ $showWorkflow = (bool) ($displayData['showWorkflow'] ?? false);
 $arrow        = Factory::getApplication()->getLanguage()->isRtl() ? 'arrow-left' : 'arrow-right';
 
 if (empty($items)) : ?>
-    <div class="alert alert-info" role="alert">
+    <div class="alert alert-info">
         <span class="icon-info-circle" aria-hidden="true"></span>
         <?php echo Text::_('COM_WORKFLOW_UPCOMING_EMPTY'); ?>
     </div>
